@@ -22,13 +22,6 @@ use ceramic_event::unvalidated::AnchorProof;
 pub const AGENT_VERSION: &str = concat!("ceramic-one/", env!("CARGO_PKG_VERSION"));
 
 #[derive(Serialize, Deserialize, Debug)]
-struct CasAuthPayload {
-    url: String,
-    nonce: String,
-    digest: String,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 struct CasAnchorRequest {
     stream_id: StreamId,

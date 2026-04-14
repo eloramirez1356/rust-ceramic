@@ -68,11 +68,11 @@ impl ValidationResult<()> {
 
 impl From<Vec<String>> for ValidationResult<()> {
     fn from(value: Vec<String>) -> Self {
-        value
-            .is_empty()
-            .not()
-            .then(|| ValidationResult::Fail(value.into()))
-            .unwrap_or(ValidationResult::Pass(()))
+        if value.is_empty().not() {
+            ValidationResult::Fail(value.into())
+        } else {
+            ValidationResult::Pass(())
+        }
     }
 }
 

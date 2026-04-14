@@ -77,6 +77,7 @@ fn get_time_event_witness_blocks(
 }
 
 /// Materialized Ceramic Event where internal structure is accessible.
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 pub enum Event<D> {
     /// Time event in a stream
