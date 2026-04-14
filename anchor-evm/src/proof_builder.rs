@@ -2,6 +2,7 @@ use anyhow::{anyhow, Result};
 use ceramic_core::Cid;
 use ceramic_event::unvalidated::AnchorProof;
 use multihash_codetable::{Code, MultihashDigest};
+use tracing::info;
 
 /// Ethereum transaction codec for IPLD (from multicodec table)
 const ETH_TX_CODEC: u64 = 0x93;
@@ -23,6 +24,17 @@ impl ProofBuilder {
         let tx_hash_cid = Self::tx_hash_to_cid(&tx_hash)?;
         let chain_id_string = format!("eip155:{}", chain_id);
         let tx_type = "f(bytes32)".to_string();
+        info!(
+            target: "ceramic_anchor_debug",
+            chain_id = %chain_id_string,
+            tx_hash = %tx_hash,
+            tx_hash_cid = %tx_hash_cid,
+            root_cid = %root_cid,
+            root_codec = root_cid.codec(),
+            root_multihash_code = root_cid.hash().code(),
+            root_digest_hex = %hex::encode(root_cid.hash().digest()),
+            "building anchor proof"
+        );
 
         Ok(AnchorProof::new(
             chain_id_string,

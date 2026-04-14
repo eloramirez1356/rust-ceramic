@@ -88,8 +88,9 @@ impl TimeEventValidator {
         let chain_proof = provider.get_chain_inclusion_proof(event.proof()).await?;
 
         // Compare the root hash in the TimeEvent's AnchorProof to the root hash that was actually
-        // included in the transaction onchain. We compare hashes (not full CIDs) because the
-        // blockchain only stores the hash - the codec is not preserved on-chain.
+        // included in the transaction onchain. The transaction only commits the 32-byte digest,
+        // so different CID wrappers that preserve the same multihash (for example `bagcq...`
+        // versus `bafy...`) must be treated as equivalent.
         if chain_proof.root_cid.hash() != event.proof().root().hash() {
             return Err(eth_rpc::Error::InvalidProof(format!(
                 "the root hash is not in the transaction (anchor proof root={}, blockchain transaction root={})",
@@ -117,6 +118,7 @@ mod test {
     use super::*;
 
     const BLOCK_TIMESTAMP: Timestamp = Timestamp::from_unix_ts(1725913338);
+    const RAW_CODEC: u64 = 0x55;
 
     fn time_event_single_event_batch() -> unvalidated::TimeEvent {
         unvalidated::Builder::time()
@@ -345,6 +347,28 @@ mod test {
                 ),
                 err => panic!("got wrong error: {:?}", err),
             },
+        }
+    }
+
+    #[test(tokio::test)]
+    async fn valid_proof_when_root_cids_use_different_wrappers() {
+        let event = time_event_single_event_batch();
+        let same_digest_different_wrapper_root =
+            Cid::new_v1(RAW_CODEC, event.proof().root().hash().to_owned());
+        assert_ne!(same_digest_different_wrapper_root, event.proof().root());
+        assert_eq!(
+            same_digest_different_wrapper_root.hash(),
+            event.proof().root().hash()
+        );
+
+        let verifier =
+            get_mock_provider(event.proof().clone(), same_digest_different_wrapper_root).await;
+
+        match verifier.validate_chain_inclusion(&event).await {
+            Ok(proof) => {
+                assert_eq!(proof.timestamp, BLOCK_TIMESTAMP);
+            }
+            Err(e) => panic!("should have passed: {:?}", e),
         }
     }
 }

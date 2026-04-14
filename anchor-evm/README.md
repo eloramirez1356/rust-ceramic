@@ -22,6 +22,7 @@ cargo test -p ceramic-anchor-evm
 
 Runs 15 tests including:
 - CID to bytes32 conversion (verified against JS implementation)
+- CID to bytes32 conversion for CIDs with variable-length varint prefixes
 - Transaction hash to CID (uses Keccak256 multihash + ETH_TX codec)
 - Proof building with correct parameter order
 - Configuration validation
@@ -258,6 +259,18 @@ interface IAnchorContract {
 ```
 
 The contract only needs a single function - the Rust implementation handles all proof construction from the transaction receipt.
+
+### `bytes32` Root Semantics
+
+The `anchorDagCbor(bytes32 root)` interface commits only the 32-byte multihash digest on-chain, not the
+entire encoded CID. Because of that:
+
+- Anchoring must extract the digest from the CID multihash directly instead of slicing fixed offsets from
+  the encoded CID bytes.
+- Validation should compare the committed multihash digest, since the chain does not authenticate the CID
+  wrapper bytes themselves.
+- Ceramic still constructs and exchanges canonical CIDs in proofs; the digest-based comparison is only to
+  match what the on-chain `f(bytes32)` proof format actually commits.
 
 ## Performance
 

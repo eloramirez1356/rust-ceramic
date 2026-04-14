@@ -114,9 +114,11 @@ impl EvmTransactionManager {
 
     /// Convert a Ceramic CID to a 32-byte array for the contract.
     ///
-    /// Extracts the raw 32-byte hash digest from the CID's multihash.
-    /// This is codec-agnostic and works for both dag-cbor (4-byte prefix)
-    /// and dag-jose (5-byte prefix due to varint encoding of 0x85).
+    /// We must extract the raw multihash digest instead of slicing the encoded CID bytes.
+    /// The CID prefix is varint-encoded, so its length is not stable across codecs. For
+    /// example, dag-cbor roots such as `bafy...` often appear to have a 4-byte prefix,
+    /// while event CIDs such as `bagcq...` can have a 5-byte prefix. Slicing at a fixed
+    /// offset shifts the digest and produces invalid anchor transaction calldata.
     pub fn cid_to_bytes32(cid: &Cid) -> Result<FixedBytes<32>> {
         let digest = cid.hash().digest();
 
@@ -138,6 +140,14 @@ impl EvmTransactionManager {
         info!(
             "Anchoring root CID: {} on chain {}",
             root_cid, self.config.chain_id
+        );
+        info!(
+            target: "ceramic_anchor_debug",
+            root_cid = %root_cid,
+            root_codec = root_cid.codec(),
+            root_multihash_code = root_cid.hash().code(),
+            root_digest_hex = %hex::encode(root_cid.hash().digest()),
+            "preparing anchor transaction"
         );
 
         // Parse contract address
@@ -195,6 +205,12 @@ impl EvmTransactionManager {
 
         // Convert CID to bytes32 for contract call
         let root_bytes32 = Self::cid_to_bytes32(&root_cid)?;
+        info!(
+            target: "ceramic_anchor_debug",
+            root_cid = %root_cid,
+            calldata_root_hex = %hex::encode(root_bytes32.as_slice()),
+            "converted root cid to bytes32"
+        );
 
         // Retry loop
         let max_retries = self.config.retry_config.max_retries;
@@ -500,37 +516,18 @@ mod tests {
         );
     }
 
-    /// Verify dag-jose CIDs (5-byte prefix) produce the same bytes32 as dag-cbor CIDs
-    /// with the same hash. The old implementation used a fixed 4-byte skip which broke
-    /// for dag-jose (codec 0x85 requires 2 bytes as varint).
     #[test]
-    fn test_cid_to_bytes32_dag_jose_vs_dag_cbor() {
-        use multihash_codetable::{Code, MultihashDigest};
+    fn test_cid_to_bytes32_handles_varint_length_prefixes() {
+        let cid =
+            Cid::from_str("bagcqcera2c2tlks56xfpwgreos6quemzoy6ekfypsklysz5snllqscjlrbqa").unwrap();
+        let bytes32 = EvmTransactionManager::cid_to_bytes32(&cid).unwrap();
 
-        // Create a hash
-        let data = b"test data for hashing";
-        let multihash = Code::Sha2_256.digest(data);
-        let expected_digest = multihash.digest();
-
-        // Create dag-cbor CID (codec 0x71, 4-byte prefix)
-        let dag_cbor_cid = Cid::new_v1(0x71, multihash);
-        // Create dag-jose CID (codec 0x85, 5-byte prefix due to varint)
-        let dag_jose_cid = Cid::new_v1(0x85, multihash);
-
-        // Both should produce the same 32-byte output
-        let cbor_bytes32 = EvmTransactionManager::cid_to_bytes32(&dag_cbor_cid).unwrap();
-        let jose_bytes32 = EvmTransactionManager::cid_to_bytes32(&dag_jose_cid).unwrap();
+        let expected = "d0b535aa5df5cafb1a2474bd0a1199763c45170f92978967b26ad709092b8860";
+        let actual = hex::encode(bytes32.as_slice());
 
         assert_eq!(
-            cbor_bytes32, jose_bytes32,
-            "dag-cbor and dag-jose CIDs with same hash must produce same bytes32"
-        );
-
-        // And it should match the raw digest
-        assert_eq!(
-            cbor_bytes32.as_slice(),
-            expected_digest,
-            "bytes32 must equal the raw hash digest"
+            actual, expected,
+            "cid_to_bytes32 must use the multihash digest even when the CID prefix is not 4 bytes"
         );
     }
 

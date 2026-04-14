@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 use ceramic_core::{Cid, SerializeExt};
+use tracing::info;
 
 use crate::{AnchorRequest, MerkleNode, MerkleNodes};
 
@@ -7,6 +8,19 @@ pub struct MerkleTree {
     pub root_cid: Cid,
     pub nodes: MerkleNodes,
     pub count: u64,
+}
+
+fn log_cid_details(label: &str, cid: &Cid) {
+    info!(
+        target: "ceramic_anchor_debug",
+        cid_label = label,
+        cid = %cid,
+        codec = cid.codec(),
+        multihash_code = cid.hash().code(),
+        digest_len = cid.hash().digest().len(),
+        digest_hex = %hex::encode(cid.hash().digest()),
+        "anchor cid details"
+    );
 }
 
 /// Make a tree using Merkle mountain range
@@ -68,6 +82,7 @@ pub fn build_merkle_tree(anchor_requests: &[AnchorRequest]) -> Result<MerkleTree
         (right_cid, merged_node) = merge_nodes(left_cid, right_cid)?;
         nodes.insert(right_cid, merged_node);
     }
+    log_cid_details("merkle_root", &right_cid);
     Ok(MerkleTree {
         root_cid: right_cid,
         count: anchor_requests.len() as u64,
@@ -78,5 +93,16 @@ pub fn build_merkle_tree(anchor_requests: &[AnchorRequest]) -> Result<MerkleTree
 /// Accepts the CIDs of two blocks and returns the CID of the CBOR list that includes both CIDs.
 pub(crate) fn merge_nodes(left: Cid, right: Cid) -> Result<(Cid, MerkleNode)> {
     let merkle_node = vec![Some(left), Some(right)];
-    Ok((merkle_node.to_cid()?, merkle_node))
+    let merged_cid = merkle_node.to_cid()?;
+    info!(
+        target: "ceramic_anchor_debug",
+        left = %left,
+        right = %right,
+        merged = %merged_cid,
+        merged_codec = merged_cid.codec(),
+        merged_multihash_code = merged_cid.hash().code(),
+        merged_digest_hex = %hex::encode(merged_cid.hash().digest()),
+        "merged merkle nodes"
+    );
+    Ok((merged_cid, merkle_node))
 }
