@@ -610,4 +610,12 @@ impl EventAccess {
             .await?;
         Ok(row)
     }
+
+    /// List all persisted chain inclusion proofs.
+    pub async fn list_chain_proofs(&self) -> Result<Vec<ChainProof>> {
+        let rows: Vec<ChainProof> = sqlx::query_as(ChainProofQuery::all())
+            .fetch_all(self.pool.reader())
+            .await?;
+        Ok(rows)
+    }
 }

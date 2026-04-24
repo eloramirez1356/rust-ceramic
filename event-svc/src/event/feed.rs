@@ -1,5 +1,7 @@
 use async_trait::async_trait;
-use ceramic_pipeline::{ConclusionEvent, ConclusionFeed};
+use ceramic_pipeline::{
+    ChainProof as PipelineChainProof, ChainProofFeed, ConclusionEvent, ConclusionFeed,
+};
 use futures::future::try_join_all;
 
 use crate::EventService;
@@ -53,5 +55,22 @@ impl ConclusionFeed for EventService {
         try_join_all(conclusion_events_futures)
             .await
             .map_err(Into::into)
+    }
+}
+
+#[async_trait]
+impl ChainProofFeed for EventService {
+    async fn chain_proofs(&self) -> anyhow::Result<Vec<PipelineChainProof>> {
+        let proofs = self.event_access.list_chain_proofs().await?;
+        Ok(proofs
+            .into_iter()
+            .map(|proof| PipelineChainProof {
+                chain_id: proof.chain_id,
+                transaction_hash: proof.transaction_hash,
+                transaction_input: proof.transaction_input,
+                block_hash: proof.block_hash,
+                timestamp: proof.timestamp,
+            })
+            .collect())
     }
 }

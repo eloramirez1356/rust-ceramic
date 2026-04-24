@@ -32,6 +32,7 @@ use tokio::{
 use tracing::{debug, error, info, warn};
 
 use crate::{
+    chain_proof::{ChainProofFeed, ChainProofTable},
     metrics::Metrics,
     schemas,
     since::{gt_expression, rows_since, FeedTable, FeedTableSource, RowsSinceInput},
@@ -48,6 +49,7 @@ pub use table::ConclusionFeed;
 
 const CONCLUSION_EVENTS_TABLE: &str = "ceramic.v0.conclusion_events";
 const CONCLUSION_EVENTS_FEED_TABLE: &str = "ceramic.v0.conclusion_events_feed";
+const CHAIN_PROOFS_TABLE: &str = "ceramic.v0.chain_proofs";
 
 /// Concluder is responsible for making conclusions about raw events and publishing
 /// conclusion_events.
@@ -58,7 +60,7 @@ pub struct Concluder {
 }
 impl Concluder {
     /// Create and spawn a new Concluder
-    pub async fn spawn_new<F: ConclusionFeed + 'static>(
+    pub async fn spawn_new<F: ConclusionFeed + ChainProofFeed + 'static>(
         size: usize,
         ctx: &PipelineContext,
         feed: ConclusionFeedSource<F>,
@@ -80,7 +82,7 @@ impl Concluder {
         .await
     }
     /// Spawn the concluder with the given actor.
-    pub async fn spawn_with<F: ConclusionFeed + 'static>(
+    pub async fn spawn_with<F: ConclusionFeed + ChainProofFeed + 'static>(
         size: usize,
         ctx: &PipelineContext,
         concluder: impl ConcluderActor,
@@ -96,6 +98,10 @@ impl Concluder {
                 ctx.session().register_table(
                     CONCLUSION_EVENTS_TABLE,
                     Arc::new(ConclusionFeedTable::new(conclusion_feed.clone())),
+                )?;
+                ctx.session().register_table(
+                    CHAIN_PROOFS_TABLE,
+                    Arc::new(ChainProofTable::new(conclusion_feed.clone())),
                 )?;
                 conclusion_feed.max_highwater_mark().await?
             }

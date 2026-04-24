@@ -11,6 +11,8 @@ pub(crate) mod macros;
 
 pub mod aggregator;
 mod cache_table;
+/// Flight SQL exposure for persisted chain proof metadata.
+pub mod chain_proof;
 pub mod cid_part;
 pub mod cid_string;
 pub mod concluder;
@@ -44,6 +46,7 @@ use cid_string::{CidString, CidStringList};
 use dimension_extract::DimensionExtract;
 use stream_id_string::{StreamIdString, StreamIdStringList};
 
+pub use chain_proof::{ChainProof, ChainProofFeed};
 pub use concluder::{
     conclusion_events_to_record_batch, ConclusionData, ConclusionEvent, ConclusionFeed,
     ConclusionInit, ConclusionTime,
@@ -178,7 +181,7 @@ pub async fn pipeline_ctx(object_store: Arc<dyn ObjectStore>) -> Result<Pipeline
 }
 
 /// Starts various actors that process the pipeline.
-pub async fn spawn_actors<F: ConclusionFeed + 'static>(
+pub async fn spawn_actors<F: ConclusionFeed + ChainProofFeed + 'static>(
     config: impl Into<Config<F>>,
 ) -> Result<Pipeline> {
     let config: Config<F> = config.into();

@@ -338,4 +338,21 @@ impl ChainProofQuery {
             )
         "#
     }
+
+    /// List all persisted chain inclusion proofs with their timestamps.
+    pub fn all() -> &'static str {
+        r#"
+            SELECT
+                p.chain_id,
+                p.transaction_hash,
+                p.transaction_input,
+                p.block_hash,
+                t.timestamp
+            FROM ceramic_one_chain_proof p
+            JOIN ceramic_one_chain_timestamp t
+              ON t.chain_id = p.chain_id
+             AND t.block_hash = p.block_hash
+            ORDER BY t.timestamp, p.chain_id, p.transaction_hash
+        "#
+    }
 }

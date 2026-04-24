@@ -10,7 +10,7 @@ use ceramic_flight::server::new_server;
 use ceramic_pipeline::{
     aggregator::{ModelAccountRelationV2, ModelDefinition, SubscribeSinceMsg},
     concluder::TimeProof,
-    ConclusionData, ConclusionEvent, ConclusionFeed, ConclusionInit, ConclusionTime,
+    ChainProof, ConclusionData, ConclusionEvent, ConclusionFeed, ConclusionInit, ConclusionTime,
     PipelineHandle,
 };
 use cid::Cid;
@@ -97,6 +97,10 @@ mock! {
             highwater_mark: i64,
             limit: i64,
         ) -> anyhow::Result<Vec<ConclusionEvent>>;
+    }
+    #[async_trait]
+    impl ceramic_pipeline::ChainProofFeed for Feed {
+        async fn chain_proofs(&self) -> anyhow::Result<Vec<ChainProof>>;
     }
 }
 
@@ -221,6 +225,18 @@ fn events(start_index: u64, highwater_mark: u64, limit: usize) -> Vec<Conclusion
     .filter(|e| e.order() > highwater_mark)
     .take(limit)
     .collect()
+}
+
+fn chain_proofs() -> Vec<ChainProof> {
+    vec![ChainProof {
+        chain_id: "eip155:11155111".to_owned(),
+        transaction_hash: "0xa86b7ef13fbd0c149494febacd33d4f0c4d1e9a399f8e59b89e04961af48b435"
+            .to_owned(),
+        transaction_input: "0xb1d2aadfc1cc635a12b59281efbb6420370acf694dd613207cb34cfa15e210f1"
+            .to_owned(),
+        block_hash: "0xblockhash".to_owned(),
+        timestamp: 1777045776,
+    }]
 }
 
 #[test(tokio::test)]
@@ -495,6 +511,85 @@ async fn event_states_feed_projection() -> Result<()> {
         | 1          |
         | 0          |
         +------------+"#]]
+    .assert_eq(&formatted);
+    Ok(())
+}
+
+#[test(tokio::test)]
+async fn chain_proofs_table_is_listed() -> Result<()> {
+    let mut feed = MockFeed::new();
+    feed.expect_max_highwater_mark()
+        .once()
+        .return_once(|| Ok(None));
+    feed.expect_conclusion_events_since()
+        .returning(|_, _| Ok(vec![]));
+
+    let (mut client, _ctx) = start_server(feed).await;
+
+    let info = client
+        .execute(
+            r#"
+            SELECT table_name
+            FROM information_schema.tables
+            WHERE table_schema = 'v0'
+            ORDER BY table_name"#
+                .to_string(),
+            None,
+        )
+        .await?;
+    let batch = execute_flight(&mut client, info).await?;
+    let formatted = pretty_format_batches(&[batch]).unwrap().to_string();
+    expect![[r#"
+        +------------------------+
+        | table_name             |
+        +------------------------+
+        | chain_proofs           |
+        | conclusion_events      |
+        | conclusion_events_feed |
+        | event_states           |
+        | event_states_feed      |
+        +------------------------+"#]]
+    .assert_eq(&formatted);
+    Ok(())
+}
+
+#[test(tokio::test)]
+async fn chain_proofs_query() -> Result<()> {
+    let mut feed = MockFeed::new();
+    feed.expect_max_highwater_mark()
+        .once()
+        .return_once(|| Ok(None));
+    feed.expect_conclusion_events_since()
+        .returning(|_, _| Ok(vec![]));
+    feed.expect_chain_proofs()
+        .once()
+        .return_once(|| Ok(chain_proofs()));
+
+    let (mut client, _ctx) = start_server(feed).await;
+
+    let info = client
+        .execute(
+            r#"
+            SELECT
+                chain_id,
+                transaction_hash,
+                transaction_input,
+                block_hash,
+                timestamp
+            FROM chain_proofs
+            WHERE chain_id = 'eip155:11155111'"#
+                .to_string(),
+            None,
+        )
+        .await?;
+    let batch = execute_flight(&mut client, info).await?;
+    let formatted = pretty_format_batches(&[batch]).unwrap().to_string();
+    expect![[r#"
+        +-----------------+--------------------------------------------------------------------+--------------------------------------------------------------------+-------------+------------+
+        | chain_id        | transaction_hash                                                   | transaction_input                                                  | block_hash  | timestamp  |
+        +-----------------+--------------------------------------------------------------------+--------------------------------------------------------------------+-------------+------------+
+        | eip155:11155111 | 0xa86b7ef13fbd0c149494febacd33d4f0c4d1e9a399f8e59b89e04961af48b435 | 0xb1d2aadfc1cc635a12b59281efbb6420370acf694dd613207cb34cfa15e210f1 | 0xblockhash | 1777045776 |
+        +-----------------+--------------------------------------------------------------------+--------------------------------------------------------------------+-------------+------------+"#]]
     .assert_eq(&formatted);
     Ok(())
 }

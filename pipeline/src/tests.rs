@@ -3,7 +3,7 @@ use mockall::mock;
 use shutdown::Shutdown;
 use tokio::task::JoinHandle;
 
-use crate::ConclusionEvent;
+use crate::{ChainProof, ConclusionEvent};
 
 mock! {
     #[derive(Debug)]
@@ -16,6 +16,10 @@ mock! {
             highwater_mark: i64,
             limit: i64,
         ) -> anyhow::Result<Vec<ConclusionEvent>>;
+    }
+    #[async_trait]
+    impl crate::ChainProofFeed for ConclusionFeed {
+        async fn chain_proofs(&self) -> anyhow::Result<Vec<ChainProof>>;
     }
 }
 

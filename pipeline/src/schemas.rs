@@ -4,6 +4,7 @@ use std::sync::{Arc, OnceLock};
 use datafusion::arrow::datatypes::{DataType, Field, Fields, SchemaBuilder, SchemaRef};
 
 static CONCLUSION_EVENTS: OnceLock<SchemaRef> = OnceLock::new();
+static CHAIN_PROOFS: OnceLock<SchemaRef> = OnceLock::new();
 static EVENT_STATES: OnceLock<SchemaRef> = OnceLock::new();
 static EVENT_STATES_PARTITIONED: OnceLock<SchemaRef> = OnceLock::new();
 static PENDING_EVENT_STATES: OnceLock<SchemaRef> = OnceLock::new();
@@ -62,6 +63,22 @@ pub fn conclusion_events() -> SchemaRef {
                 ),
                 Field::new("before", DataType::UInt64, true),
                 Field::new("chain_id", DataType::Utf8, true),
+            ]))
+            .finish(),
+        )
+    }))
+}
+
+/// The `chain_proofs` table contains persisted chain inclusion proof metadata.
+pub fn chain_proofs() -> SchemaRef {
+    Arc::clone(CHAIN_PROOFS.get_or_init(|| {
+        Arc::new(
+            SchemaBuilder::from(&Fields::from(vec![
+                Field::new("chain_id", DataType::Utf8, false),
+                Field::new("transaction_hash", DataType::Utf8, false),
+                Field::new("transaction_input", DataType::Utf8, false),
+                Field::new("block_hash", DataType::Utf8, false),
+                Field::new("timestamp", DataType::Int64, false),
             ]))
             .finish(),
         )
