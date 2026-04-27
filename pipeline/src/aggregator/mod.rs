@@ -352,6 +352,11 @@ impl Aggregator {
                         col("model_definition"),
                         col("before"),
                         col("chain_id"),
+                        col("proof_cid"),
+                        col("proof_path"),
+                        col("proof_root_cid"),
+                        col("proof_tx_hash_cid"),
+                        col("proof_tx_type"),
                     ])
                     .context("select ready mids")?,
             )
@@ -459,6 +464,11 @@ impl Aggregator {
                     .alias("previous_event_cid_partition"),
                 col("before"),
                 col("chain_id"),
+                col("proof_cid"),
+                col("proof_path"),
+                col("proof_root_cid"),
+                col("proof_tx_hash_cid"),
+                col("proof_tx_type"),
                 cid_part(col("event_cid")).alias("event_cid_partition"),
             ])
             .context("selecting conclusion events")?
@@ -539,6 +549,11 @@ impl Aggregator {
                 col("previous_height"),
                 col("before"),
                 col("chain_id"),
+                col("proof_cid"),
+                col("proof_path"),
+                col("proof_root_cid"),
+                col("proof_tx_hash_cid"),
+                col("proof_tx_type"),
                 col("event_cid_partition"),
             ])
             .context("select joined conclusion events")?;
@@ -577,6 +592,11 @@ impl Aggregator {
                 "model_definition",
                 "before",
                 "chain_id",
+                "proof_cid",
+                "proof_path",
+                "proof_root_cid",
+                "proof_tx_hash_cid",
+                "proof_tx_type",
             ])
             .context("select pending events")?
             .cache()
@@ -629,6 +649,11 @@ impl Aggregator {
                 .alias("data"),
                 col("before"),
                 col("chain_id"),
+                col("proof_cid"),
+                col("proof_path"),
+                col("proof_root_cid"),
+                col("proof_tx_hash_cid"),
+                col("proof_tx_type"),
                 col("event_cid_partition"),
             ])?)
     }
@@ -652,6 +677,11 @@ impl Aggregator {
             .alias("validation_errors"),
             col("before"),
             col("chain_id"),
+            col("proof_cid"),
+            col("proof_path"),
+            col("proof_root_cid"),
+            col("proof_tx_hash_cid"),
+            col("proof_tx_type"),
             col("event_cid_partition"),
         ])?)
     }
@@ -718,6 +748,11 @@ impl Aggregator {
                 .alias("patch"),
                 col("before"),
                 col("chain_id"),
+                col("proof_cid"),
+                col("proof_path"),
+                col("proof_root_cid"),
+                col("proof_tx_hash_cid"),
+                col("proof_tx_type"),
                 col("event_cid_partition"),
             ])
             .context("select")
@@ -757,6 +792,11 @@ impl Aggregator {
                 col("model_definition"),
                 col("before"),
                 col("chain_id"),
+                col("proof_cid"),
+                col("proof_path"),
+                col("proof_root_cid"),
+                col("proof_tx_hash_cid"),
+                col("proof_tx_type"),
             ])
             .context("select")
     }
@@ -784,6 +824,11 @@ impl Aggregator {
                 .alias("validation_errors"),
                 col("before"),
                 col("chain_id"),
+                col("proof_cid"),
+                col("proof_path"),
+                col("proof_root_cid"),
+                col("proof_tx_hash_cid"),
+                col("proof_tx_type"),
                 col("event_cid_partition"),
             ])
             .context("select")
@@ -836,6 +881,11 @@ impl Aggregator {
                 col("validation_errors"),
                 col("before"),
                 col("chain_id"),
+                col("proof_cid"),
+                col("proof_path"),
+                col("proof_root_cid"),
+                col("proof_tx_hash_cid"),
+                col("proof_tx_type"),
                 col("event_cid_partition"),
             ])
             .context("select")?
@@ -1522,6 +1572,20 @@ mod tests {
                 time_proof: TimeProof {
                     before: 1744383131980,
                     chain_id: "test:chain".to_owned(),
+                    proof_cid: Cid::from_str(
+                        "bafyreiggljjnfrcdmwhhtb3wkqaj2zqlkf2umbghil6lzghzvgufxxu5ja",
+                    )
+                    .unwrap(),
+                    proof_path: "1".to_owned(),
+                    proof_root_cid: Cid::from_str(
+                        "bagcqceraebwryxt733lpqqvtxwdjrjacz2u2ellpzqs4uhp4j4eef2wymzrq",
+                    )
+                    .unwrap(),
+                    proof_tx_hash_cid: Cid::from_str(
+                        "bagjqcgzaofjlujkjgd5iysdh4ayawxbtr6qjrliea7h5xlv4cwgvci7efacq",
+                    )
+                    .unwrap(),
+                    proof_tx_type: "f(bytes32)".to_owned(),
                 },
             }),
             ConclusionEvent::Data(ConclusionData {

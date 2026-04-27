@@ -121,6 +121,16 @@ pub struct TimeProof {
     pub before: u64,
     /// Chain ID where this time event was anchored.
     pub chain_id: String,
+    /// CID of the anchor proof block referenced by the time event.
+    pub proof_cid: Cid,
+    /// Merkle path within the anchored batch for this event.
+    pub proof_path: String,
+    /// Merkle root CID committed on chain.
+    pub proof_root_cid: Cid,
+    /// CID-wrapped transaction hash from the anchor proof.
+    pub proof_tx_hash_cid: Cid,
+    /// Transaction type used to interpret the anchor transaction calldata.
+    pub proof_tx_type: String,
 }
 
 impl<'a> TryFrom<&'a unvalidated::Event<Ipld>> for ConclusionInit {
@@ -210,6 +220,11 @@ pub struct ConclusionEventBuilder {
     previous: ListBuilder<BinaryBuilder>,
     before: UInt64Builder,
     chain_id: StringBuilder,
+    proof_cid: BinaryBuilder,
+    proof_path: StringBuilder,
+    proof_root_cid: BinaryBuilder,
+    proof_tx_hash_cid: BinaryBuilder,
+    proof_tx_type: StringBuilder,
 }
 
 impl Default for ConclusionEventBuilder {
@@ -237,6 +252,11 @@ impl Default for ConclusionEventBuilder {
                 .with_field(Field::new_list_field(DataType::Binary, false)),
             before: UInt64Builder::new(),
             chain_id: StringBuilder::new(),
+            proof_cid: BinaryBuilder::new(),
+            proof_path: StringBuilder::new(),
+            proof_root_cid: BinaryBuilder::new(),
+            proof_tx_hash_cid: BinaryBuilder::new(),
+            proof_tx_type: StringBuilder::new(),
         }
     }
 }
@@ -254,6 +274,11 @@ impl ConclusionEventBuilder {
                 self.order.append_value(data_event.order);
                 self.before.append_null();
                 self.chain_id.append_null();
+                self.proof_cid.append_null();
+                self.proof_path.append_null();
+                self.proof_root_cid.append_null();
+                self.proof_tx_hash_cid.append_null();
+                self.proof_tx_type.append_null();
                 &data_event.init
             }
             ConclusionEvent::Time(time_event) => {
@@ -269,6 +294,16 @@ impl ConclusionEventBuilder {
                 self.before.append_value(time_event.time_proof.before);
                 self.chain_id
                     .append_value(time_event.time_proof.chain_id.clone());
+                self.proof_cid
+                    .append_value(time_event.time_proof.proof_cid.to_bytes());
+                self.proof_path
+                    .append_value(time_event.time_proof.proof_path.as_str());
+                self.proof_root_cid
+                    .append_value(time_event.time_proof.proof_root_cid.to_bytes());
+                self.proof_tx_hash_cid
+                    .append_value(time_event.time_proof.proof_tx_hash_cid.to_bytes());
+                self.proof_tx_type
+                    .append_value(time_event.time_proof.proof_tx_type.as_str());
 
                 &time_event.init
             }
@@ -303,6 +338,20 @@ impl ConclusionEventBuilder {
             ("previous", Arc::new(self.previous.finish()) as ArrayRef),
             ("before", Arc::new(self.before.finish()) as ArrayRef),
             ("chain_id", Arc::new(self.chain_id.finish()) as ArrayRef),
+            ("proof_cid", Arc::new(self.proof_cid.finish()) as ArrayRef),
+            ("proof_path", Arc::new(self.proof_path.finish()) as ArrayRef),
+            (
+                "proof_root_cid",
+                Arc::new(self.proof_root_cid.finish()) as ArrayRef,
+            ),
+            (
+                "proof_tx_hash_cid",
+                Arc::new(self.proof_tx_hash_cid.finish()) as ArrayRef,
+            ),
+            (
+                "proof_tx_type",
+                Arc::new(self.proof_tx_type.finish()) as ArrayRef,
+            ),
         ])
         .expect("unreachable, we should always construct a well formed struct array")
     }
@@ -490,6 +539,20 @@ mod tests {
                 time_proof: TimeProof {
                     before: 1744383131980,
                     chain_id: "test:chain".to_owned(),
+                    proof_cid: Cid::from_str(
+                        "bafyreiggljjnfrcdmwhhtb3wkqaj2zqlkf2umbghil6lzghzvgufxxu5ja",
+                    )
+                    .unwrap(),
+                    proof_path: "1".to_owned(),
+                    proof_root_cid: Cid::from_str(
+                        "bagcqceraebwryxt733lpqqvtxwdjrjacz2u2ellpzqs4uhp4j4eef2wymzrq",
+                    )
+                    .unwrap(),
+                    proof_tx_hash_cid: Cid::from_str(
+                        "bagjqcgzaofjlujkjgd5iysdh4ayawxbtr6qjrliea7h5xlv4cwgvci7efacq",
+                    )
+                    .unwrap(),
+                    proof_tx_type: "f(bytes32)".to_owned(),
                 },
             }),
             ConclusionEvent::Data(ConclusionData {
@@ -526,14 +589,14 @@ mod tests {
 
         // Use expect_test to validate the output
         expect![[r#"
-            +------------------------+-------------------------------------------------------------+-------------+---------------+-------------------------------------------------------------+-------------------------------------------------------------+------------+------+----------------------------------------------------------------------------------------------------------------------------+---------------+------------+
-            | conclusion_event_order | stream_cid                                                  | stream_type | controller    | dimensions                                                  | event_cid                                                   | event_type | data | previous                                                                                                                   | before        | chain_id   |
-            +------------------------+-------------------------------------------------------------+-------------+---------------+-------------------------------------------------------------+-------------------------------------------------------------+------------+------+----------------------------------------------------------------------------------------------------------------------------+---------------+------------+
-            | 0                      | baeabeif2fdfqe2hu6ugmvgozkk3bbp5cqi4udp5rerjmz4pdgbzf3fvobu | 2           | did:key:test1 | {controller: 6469643a6b65793a7465737431, model: 6d6f64656c} | baeabeif2fdfqe2hu6ugmvgozkk3bbp5cqi4udp5rerjmz4pdgbzf3fvobu | 0          | 123  |                                                                                                                            |               |            |
-            | 1                      | baeabeif2fdfqe2hu6ugmvgozkk3bbp5cqi4udp5rerjmz4pdgbzf3fvobu | 2           | did:key:test1 | {controller: 6469643a6b65793a7465737431, model: 6d6f64656c} | baeabeid2w5pgdsdh25nah7batmhxanbj3x2w2is3atser7qxboyojv236q | 0          | 456  | [baeabeif2fdfqe2hu6ugmvgozkk3bbp5cqi4udp5rerjmz4pdgbzf3fvobu]                                                              |               |            |
-            | 2                      | baeabeif2fdfqe2hu6ugmvgozkk3bbp5cqi4udp5rerjmz4pdgbzf3fvobu | 2           | did:key:test1 | {controller: 6469643a6b65793a7465737431, model: 6d6f64656c} | baeabeidtub3bnbojbickf6d4pqscaw6xpt5ksgido7kcsg2jyftaj237di | 1          |      | [baeabeid2w5pgdsdh25nah7batmhxanbj3x2w2is3atser7qxboyojv236q]                                                              | 1744383131980 | test:chain |
-            | 3                      | baeabeif2fdfqe2hu6ugmvgozkk3bbp5cqi4udp5rerjmz4pdgbzf3fvobu | 2           | did:key:test1 | {controller: 6469643a6b65793a7465737431, model: 6d6f64656c} | baeabeiewqcj4bwhcssizv5kcyvsvm57bxghjpqshnbzkc6rijmwb4im4yq | 0          | 789  | [baeabeidtub3bnbojbickf6d4pqscaw6xpt5ksgido7kcsg2jyftaj237di, baeabeid2w5pgdsdh25nah7batmhxanbj3x2w2is3atser7qxboyojv236q] |               |            |
-            +------------------------+-------------------------------------------------------------+-------------+---------------+-------------------------------------------------------------+-------------------------------------------------------------+------------+------+----------------------------------------------------------------------------------------------------------------------------+---------------+------------+"#]].assert_eq(&formatted);
+            +------------------------+-------------------------------------------------------------+-------------+---------------+-------------------------------------------------------------+-------------------------------------------------------------+------------+------+----------------------------------------------------------------------------------------------------------------------------+---------------+------------+-------------------------------------------------------------+------------+-------------------------------------------------------------+-------------------------------------------------------------+-------------+
+            | conclusion_event_order | stream_cid                                                  | stream_type | controller    | dimensions                                                  | event_cid                                                   | event_type | data | previous                                                                                                                   | before        | chain_id   | proof_cid                                                   | proof_path | proof_root_cid                                              | proof_tx_hash_cid                                           | proof_tx_type |
+            +------------------------+-------------------------------------------------------------+-------------+---------------+-------------------------------------------------------------+-------------------------------------------------------------+------------+------+----------------------------------------------------------------------------------------------------------------------------+---------------+------------+-------------------------------------------------------------+------------+-------------------------------------------------------------+-------------------------------------------------------------+-------------+
+            | 0                      | baeabeif2fdfqe2hu6ugmvgozkk3bbp5cqi4udp5rerjmz4pdgbzf3fvobu | 2           | did:key:test1 | {controller: 6469643a6b65793a7465737431, model: 6d6f64656c} | baeabeif2fdfqe2hu6ugmvgozkk3bbp5cqi4udp5rerjmz4pdgbzf3fvobu | 0          | 123  |                                                                                                                            |               |            |                                                             |            |                                                             |                                                             |               |
+            | 1                      | baeabeif2fdfqe2hu6ugmvgozkk3bbp5cqi4udp5rerjmz4pdgbzf3fvobu | 2           | did:key:test1 | {controller: 6469643a6b65793a7465737431, model: 6d6f64656c} | baeabeid2w5pgdsdh25nah7batmhxanbj3x2w2is3atser7qxboyojv236q | 0          | 456  | [baeabeif2fdfqe2hu6ugmvgozkk3bbp5cqi4udp5rerjmz4pdgbzf3fvobu]                                                              |               |            |                                                             |            |                                                             |                                                             |               |
+            | 2                      | baeabeif2fdfqe2hu6ugmvgozkk3bbp5cqi4udp5rerjmz4pdgbzf3fvobu | 2           | did:key:test1 | {controller: 6469643a6b65793a7465737431, model: 6d6f64656c} | baeabeidtub3bnbojbickf6d4pqscaw6xpt5ksgido7kcsg2jyftaj237di | 1          |      | [baeabeid2w5pgdsdh25nah7batmhxanbj3x2w2is3atser7qxboyojv236q]                                                              | 1744383131980 | test:chain | bafyreiggljjnfrcdmwhhtb3wkqaj2zqlkf2umbghil6lzghzvgufxxu5ja | 1          | bagcqceraebwryxt733lpqqvtxwdjrjacz2u2ellpzqs4uhp4j4eef2wymzrq | bagjqcgzaofjlujkjgd5iysdh4ayawxbtr6qjrliea7h5xlv4cwgvci7efacq | f(bytes32)  |
+            | 3                      | baeabeif2fdfqe2hu6ugmvgozkk3bbp5cqi4udp5rerjmz4pdgbzf3fvobu | 2           | did:key:test1 | {controller: 6469643a6b65793a7465737431, model: 6d6f64656c} | baeabeiewqcj4bwhcssizv5kcyvsvm57bxghjpqshnbzkc6rijmwb4im4yq | 0          | 789  | [baeabeidtub3bnbojbickf6d4pqscaw6xpt5ksgido7kcsg2jyftaj237di, baeabeid2w5pgdsdh25nah7batmhxanbj3x2w2is3atser7qxboyojv236q] |               |            |                                                             |            |                                                             |                                                             |               |
+            +------------------------+-------------------------------------------------------------+-------------+---------------+-------------------------------------------------------------+-------------------------------------------------------------+------------+------+----------------------------------------------------------------------------------------------------------------------------+---------------+------------+-------------------------------------------------------------+------------+-------------------------------------------------------------+-------------------------------------------------------------+-------------+"#]].assert_eq(&formatted);
     }
 
     // Applies various transformations on a record batch of conclusion_events data to make it easier to
@@ -577,6 +640,23 @@ mod tests {
                 .alias("previous"),
                 col("before"),
                 col("chain_id"),
+                Expr::ScalarFunction(ScalarFunction::new_udf(
+                    cid_string.clone(),
+                    vec![col("proof_cid")],
+                ))
+                .alias("proof_cid"),
+                col("proof_path"),
+                Expr::ScalarFunction(ScalarFunction::new_udf(
+                    cid_string.clone(),
+                    vec![col("proof_root_cid")],
+                ))
+                .alias("proof_root_cid"),
+                Expr::ScalarFunction(ScalarFunction::new_udf(
+                    cid_string,
+                    vec![col("proof_tx_hash_cid")],
+                ))
+                .alias("proof_tx_hash_cid"),
+                col("proof_tx_type"),
             ])
             .unwrap()
             .sort(vec![col("conclusion_event_order").sort(true, true)])

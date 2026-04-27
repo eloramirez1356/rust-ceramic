@@ -63,6 +63,11 @@ pub fn conclusion_events() -> SchemaRef {
                 ),
                 Field::new("before", DataType::UInt64, true),
                 Field::new("chain_id", DataType::Utf8, true),
+                Field::new("proof_cid", DataType::Binary, true),
+                Field::new("proof_path", DataType::Utf8, true),
+                Field::new("proof_root_cid", DataType::Binary, true),
+                Field::new("proof_tx_hash_cid", DataType::Binary, true),
+                Field::new("proof_tx_type", DataType::Utf8, true),
             ]))
             .finish(),
         )
@@ -137,6 +142,11 @@ pub fn event_states() -> SchemaRef {
                 ),
                 Field::new("before", DataType::UInt64, true),
                 Field::new("chain_id", DataType::Utf8, true),
+                Field::new("proof_cid", DataType::Binary, true),
+                Field::new("proof_path", DataType::Utf8, true),
+                Field::new("proof_root_cid", DataType::Binary, true),
+                Field::new("proof_tx_hash_cid", DataType::Binary, true),
+                Field::new("proof_tx_type", DataType::Utf8, true),
             ]))
             .finish(),
         )
@@ -212,6 +222,11 @@ pub fn pending_event_states() -> SchemaRef {
                 Field::new("model_version", DataType::Binary, true),
                 Field::new("before", DataType::UInt64, true),
                 Field::new("chain_id", DataType::Utf8, true),
+                Field::new("proof_cid", DataType::Binary, true),
+                Field::new("proof_path", DataType::Utf8, true),
+                Field::new("proof_root_cid", DataType::Binary, true),
+                Field::new("proof_tx_hash_cid", DataType::Binary, true),
+                Field::new("proof_tx_type", DataType::Utf8, true),
             ]))
             .finish(),
         )

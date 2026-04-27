@@ -458,6 +458,20 @@ mod tests {
                     time_proof: TimeProof {
                         before: 1744383131980,
                         chain_id: "test:chain".to_owned(),
+                        proof_cid: Cid::from_str(
+                            "bafyreiggljjnfrcdmwhhtb3wkqaj2zqlkf2umbghil6lzghzvgufxxu5ja",
+                        )
+                        .unwrap(),
+                        proof_path: "1".to_owned(),
+                        proof_root_cid: Cid::from_str(
+                            "bagcqceraebwryxt733lpqqvtxwdjrjacz2u2ellpzqs4uhp4j4eef2wymzrq",
+                        )
+                        .unwrap(),
+                        proof_tx_hash_cid: Cid::from_str(
+                            "bagjqcgzaofjlujkjgd5iysdh4ayawxbtr6qjrliea7h5xlv4cwgvci7efacq",
+                        )
+                        .unwrap(),
+                        proof_tx_type: "f(bytes32)".to_owned(),
                     },
                 })])
             });

@@ -419,6 +419,14 @@ impl EventService {
                             .try_into()
                             .expect("conclusion timestamp overflow"),
                         chain_id: proof.chain_id,
+                        proof_cid: time_event
+                            .proof()
+                            .to_cid()
+                            .expect("anchor proof should always encode to a cid"),
+                        proof_path: time_event.path().to_owned(),
+                        proof_root_cid: time_event.proof().root(),
+                        proof_tx_hash_cid: time_event.proof().tx_hash(),
+                        proof_tx_type: time_event.proof().tx_type().to_owned(),
                     },
                 }))
             }

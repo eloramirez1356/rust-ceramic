@@ -199,6 +199,20 @@ fn events(start_index: u64, highwater_mark: u64, limit: usize) -> Vec<Conclusion
             time_proof: TimeProof {
                 before: 1744383131980,
                 chain_id: "test:chain".to_owned(),
+                proof_cid: Cid::from_str(
+                    "bafyreiggljjnfrcdmwhhtb3wkqaj2zqlkf2umbghil6lzghzvgufxxu5ja",
+                )
+                .unwrap(),
+                proof_path: "1".to_owned(),
+                proof_root_cid: Cid::from_str(
+                    "bagcqceraebwryxt733lpqqvtxwdjrjacz2u2ellpzqs4uhp4j4eef2wymzrq",
+                )
+                .unwrap(),
+                proof_tx_hash_cid: Cid::from_str(
+                    "bagjqcgzaofjlujkjgd5iysdh4ayawxbtr6qjrliea7h5xlv4cwgvci7efacq",
+                )
+                .unwrap(),
+                proof_tx_type: "f(bytes32)".to_owned(),
             },
         }),
         ConclusionEvent::Data(ConclusionData {
@@ -294,7 +308,18 @@ async fn conclusion_push_down_predicate() -> Result<()> {
         .once()
         .with(predicate::eq(42), predicate::eq(2))
         .return_once(|h, l| Ok(events(h as u64, h as u64, l as usize)));
-    let (mut client, _ctx) = start_server(feed).await;
+    let (mut client, ctx) = start_server(feed).await;
+
+    if let Some(aggregator) = ctx.aggregator() {
+        let mut sub = aggregator
+            .send(SubscribeSinceMsg {
+                projection: None,
+                filters: None,
+                limit: Some(4),
+            })
+            .await??;
+        while sub.try_next().await?.is_some() {}
+    }
 
     let info = client
         .execute(
@@ -472,6 +497,110 @@ async fn event_states_feed() -> Result<()> {
         | 3                 | baeabeicdwdrilh6gazn6a7eruxbt5q46cquzimxsk52vcwobfvjhlndafm | 3           | did:key:alice | {controller: 6469643a6b65793a616c696365, model: ce010201001220809c5470e3635e495f5a98437de616b6612da8b3753fc2ee34a8324ab68585fd, unique: 77676b3533} | baeabeihyzbu2wxx4yj37mozb76gkxln2dt5zxxasivhuzbnxiqd5w4xygq | 1          | {"content":{"blue":255,"creator":"alice","green":255,"red":255},"metadata":{"foo":1,"shouldIndex":true}}                                                                                                                                                                                                                                                                                                                                                                                                                                             | 1744383131980 | test:chain |
         | 4                 | baeabeicdwdrilh6gazn6a7eruxbt5q46cquzimxsk52vcwobfvjhlndafm | 3           | did:key:alice | {controller: 6469643a6b65793a616c696365, model: ce010201001220809c5470e3635e495f5a98437de616b6612da8b3753fc2ee34a8324ab68585fd, unique: 77676b3533} | baeabeibrtuyyqwd6y4aa62qxaimjhafielf7fc22fa5b7i7vptcu5263em | 0          | {"metadata":{"foo":2,"shouldIndex":true},"content":{"blue":255,"creator":"alice","green":255,"red":0}}                                                                                                                                                                                                                                                                                                                                                                                                                                               |               |            |
         +-------------------+-------------------------------------------------------------+-------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------+-------------------------------------------------------------+------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------+------------+"#]].assert_eq(&formatted);
+    Ok(())
+}
+
+
+#[test(tokio::test)]
+async fn conclusion_events_feed_anchor_proof_columns() -> Result<()> {
+    let mut feed = MockFeed::new();
+    feed.expect_max_highwater_mark()
+        .once()
+        .return_once(|| Ok(None));
+    feed.expect_conclusion_events_since()
+        .returning(|h, l| Ok(events(1, h as u64, l as usize)));
+
+    let (mut client, ctx) = start_server(feed).await;
+
+    if let Some(aggregator) = ctx.aggregator() {
+        let mut sub = aggregator
+            .send(SubscribeSinceMsg {
+                projection: None,
+                filters: None,
+                limit: Some(4),
+            })
+            .await??;
+        while sub.try_next().await?.is_some() {}
+    }
+
+    let info = client
+        .execute(
+            r#"
+            SELECT
+                cid_string(proof_cid) as proof_cid,
+                proof_path,
+                cid_string(proof_root_cid) as proof_root_cid,
+                cid_string(proof_tx_hash_cid) as proof_tx_hash_cid,
+                proof_tx_type
+            FROM conclusion_events_feed
+            WHERE event_type = 1
+            LIMIT 1"#
+                .to_string(),
+            None,
+        )
+        .await?;
+    let batch = execute_flight(&mut client, info).await?;
+    let formatted = pretty_format_batches(&[batch]).unwrap().to_string();
+    expect![[r#"
+        +-------------------------------------------------------------+------------+---------------------------------------------------------------+---------------------------------------------------------------+---------------+
+        | proof_cid                                                   | proof_path | proof_root_cid                                                | proof_tx_hash_cid                                             | proof_tx_type |
+        +-------------------------------------------------------------+------------+---------------------------------------------------------------+---------------------------------------------------------------+---------------+
+        | bafyreiggljjnfrcdmwhhtb3wkqaj2zqlkf2umbghil6lzghzvgufxxu5ja | 1          | bagcqceraebwryxt733lpqqvtxwdjrjacz2u2ellpzqs4uhp4j4eef2wymzrq | bagjqcgzaofjlujkjgd5iysdh4ayawxbtr6qjrliea7h5xlv4cwgvci7efacq | f(bytes32)    |
+        +-------------------------------------------------------------+------------+---------------------------------------------------------------+---------------------------------------------------------------+---------------+"#]]
+    .assert_eq(&formatted);
+    Ok(())
+}
+
+#[test(tokio::test)]
+async fn event_states_anchor_proof_columns() -> Result<()> {
+    let mut feed = MockFeed::new();
+    feed.expect_max_highwater_mark()
+        .once()
+        .return_once(|| Ok(None));
+    feed.expect_conclusion_events_since()
+        .returning(|h, l| Ok(events(1, h as u64, l as usize)));
+
+    let (mut client, ctx) = start_server(feed).await;
+
+    if let Some(aggregator) = ctx.aggregator() {
+        let mut sub = aggregator
+            .send(SubscribeSinceMsg {
+                projection: None,
+                filters: None,
+                limit: Some(4),
+            })
+            .await??;
+        while sub.try_next().await?.is_some() {}
+    }
+
+    let info = client
+        .execute(
+            r#"
+            SELECT
+                cid_string(proof_cid) as proof_cid,
+                proof_path,
+                cid_string(proof_root_cid) as proof_root_cid,
+                cid_string(proof_tx_hash_cid) as proof_tx_hash_cid,
+                proof_tx_type,
+                before,
+                chain_id
+            FROM event_states
+            WHERE event_type = 1
+            ORDER BY event_state_order
+            LIMIT 1"#
+                .to_string(),
+            None,
+        )
+        .await?;
+    let batch = execute_flight(&mut client, info).await?;
+    let formatted = pretty_format_batches(&[batch]).unwrap().to_string();
+    expect![[r#"
+        +-------------------------------------------------------------+------------+---------------------------------------------------------------+---------------------------------------------------------------+---------------+---------------+------------+
+        | proof_cid                                                   | proof_path | proof_root_cid                                                | proof_tx_hash_cid                                             | proof_tx_type | before        | chain_id   |
+        +-------------------------------------------------------------+------------+---------------------------------------------------------------+---------------------------------------------------------------+---------------+---------------+------------+
+        | bafyreiggljjnfrcdmwhhtb3wkqaj2zqlkf2umbghil6lzghzvgufxxu5ja | 1          | bagcqceraebwryxt733lpqqvtxwdjrjacz2u2ellpzqs4uhp4j4eef2wymzrq | bagjqcgzaofjlujkjgd5iysdh4ayawxbtr6qjrliea7h5xlv4cwgvci7efacq | f(bytes32)    | 1744383131980 | test:chain |
+        +-------------------------------------------------------------+------------+---------------------------------------------------------------+---------------------------------------------------------------+---------------+---------------+------------+"#]]
+    .assert_eq(&formatted);
     Ok(())
 }
 
